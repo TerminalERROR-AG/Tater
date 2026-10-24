@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tater Hurricane Tracker™ — Workbench Terminal v0.16.0</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0d0d0d;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .dashboard-terminal {
+            background-color: #161616;
+            border: 1px solid #262626;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 950px;
+            padding: 20px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        @media (min-width: 768px) {
+            .dashboard-terminal { grid-template-columns: 1.2fr 1fr; }
+            .wide-panel { grid-column: 1 / -1; }
+        }
+        h2 {
+            margin: 0 0 15px 0;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            color: #888;
+            text-transform: uppercase;
+            border-bottom: 1px solid #262626;
+            padding-bottom: 8px;
+        }
+        .control-panel, .display-panel {
+            background-color: #1c1c1c;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            background-color: #0a0a0a;
+            color: #00FF00;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.9rem;
+            resize: none;
+            box-sizing: border-box;
+        }
+        .action-btn {
+            background-color: #2e2e2e;
+            color: #ffffff;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background-color 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .action-btn:active { background-color: #444; }
+        
+        /* Unit Toggles styling elements */
+        .unit-selector-row {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .unit-toggle-btn {
+            background-color: #222;
+            color: #888;
+            border: 1px solid #333;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        .unit-toggle-btn.active {
+            background-color: #00FF00;
+            color: #000;
+            border-color: #00FF00;
+        }
+
+        .visual-indicator-ring {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            margin: 5px auto 10px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 10px solid #444;
+            transition: border-color 0.4s ease;
+            background: radial-gradient(#1c1c1c 60%, transparent 61%);
+        }
+        .speed-readout { font-size: 2.4rem; font-weight: 800; margin: 0; color: #fff; }
+        .unit-label { font-size: 0.8rem; color: #666; letter-spacing: 1px; text-transform: uppercase; }
+        .category-badge { align-self: center; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; color: #888; background-color: #222; margin: 10px 0; text-align: center; transition: all 0.4s ease; }
+        .canvas-container { width: 100%; background-color: #0b0b0b; border: 1px solid #222; border-radius: 8px; overflow: hidden; margin-top: 15px; }
+        canvas { display: block; width: 100%; height: 220px; background-color: #050a12; }
+        .telemetry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; }
+        .telemetry-node { background-color: #121212; border: 1px solid #222; border-radius: 6px; padding: 10px; text-align: center; }
+        .node-label { font-size: 0.75rem; color: #666; text-transform: uppercase; }
+        .node-value { font-size: 0.95rem; font-weight: 600; margin-top: 4px; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-terminal">
+        <!-- PANEL A: SIGNAL INPUT STAGE -->
+        <div class="control-panel">
+            <h2>Signal Input Stage</h2>
+            <label style="font-size: 0.85rem; color:#aaa; margin-bottom: 8px;">Paste Raw NHC Advisory text string below:</label>
+            <textarea id="rawSignalInput" placeholder="...THE CENTER OF TATER HURRICANE WAS LOCATED NEAR 24.5N 81.2W... MAXIMUM SUSTAINED WINDS ARE NEAR 130 MPH... PRESSURE 935 MB..."></textarea>
+            <button class="action-btn" onclick="processIncomingWeatherSignal()">Execute Signal Parse</button>
+        </div>
+
+        <!-- PANEL B: GRAPHICAL TELEMETRY & MAP CANVAS -->
+        <div class="display-panel">
+            <h2>Telemetry View</h2>
+            
+            <!-- Unit Conversion Selector UI Link -->
+            <div class="unit-selector-row">
+                <button id="btn-mph" class="unit-toggle-btn active" onclick="setGlobalDisplayUnit('mph')">MPH</button>
+                <button id="btn-kt" class="unit-toggle-btn" onclick="setGlobalDisplayUnit('kt')">KNOTS</button>
+                <button id="btn-kmh" class="unit-toggle-btn" onclick="setGlobalDisplayUnit('kmh')">KM/H</button>
+            </div>
+            
+            <div id="visualRing" class="visual-indicator-ring">
+                <div id="windSpeed" class="speed-readout">---</div>
+                <div id="windUnitLabel" class="unit-label">MPH</div>
+            </div>
+
+            <div id="categoryBadge" class="category-badge">Awaiting Signal Engine...</div>
+
+            <div class="canvas-container">
+                <canvas id="trackingCanvas"></canvas>
+            </div>
+
+            <div class="telemetry-grid" style="margin-top: 15px;">
+                <div class="telemetry-node"><div class="node-label">Coordinates</div><div id="coordReadout" class="node-value">---, ---</div></div>
+                <div class="telemetry-node"><div class="node-label">Barometric Load</div><div id="pressureReadout" class="node-value">--- mb</div></div>
+            </div>
+        </div>
+
+        <!-- PANEL C: AMATEUR RADIO APRS PACKET INTERFACES -->
+        <div class="control-panel wide-panel" style="background-color: #111a24; border-color: #1e2d3d;">
+            <h2 style="color: #4a90e2; border-color: #1e2d3d;">Amateur Radio / APRS Data Stream</h2>
+            <label style="font-size: 0.85rem; color:#a2b6cc; margin-bottom: 8px;">Paste Raw Positionless WX Packet or Station Log Frame:</label>
+            <textarea id="rawAprsInput" style="color: #4a90e2; border-color: #243b54;" placeholder="W4USA-9>APRS,TCPIP*:=2751.00N/08226.00W_10240105c090s012g020t072Severe weather test"></textarea>
+            <button class="action-btn" style="background-color: #1a2f4c; border-color: #2c4c7c; color: #4a90e2;" onclick="processIncomingAprsPacket()">Execute APRS Decoder Loop</button>
+
+            <div class="telemetry-grid" style="margin-top: 15px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+                <div class="telemetry-node" style="background-color: #0b1118;"><div class="node-label">🌡️ Temperature</div><div id="aprsTemp" class="node-value" style="color: #4a90e2;">--- °F</div></div>
+                <div class="telemetry-node" style="background-color: #0b1118;"><div class="node-label">🧭 Wind Bearing</div><div id="aprsDir" class="node-value" style="color: #4a90e2;">---°</div></div>
+                <div class="telemetry-node" style="background-color: #0b1118;"><div class="node-label">💨 Sustained</div><div id="aprsWind" class="node-value" style="color: #4a90e2;">--- MPH</div></div>
+                <div class="telemetry-node" style="background-color: #0b1118;"><div class="node-label">⚡ Peak Gusts</div><div id="aprsGust" class="node-value" style="color: #4a90e2;">--- MPH</div></div>
+            </div>
+        </div>
+
+        <!-- PANEL D: ON-DEVICE LOCAL STORAGE STATION BOOKMARKS -->
+        <div class="control-panel wide-panel" style="background-color: #1a1124; border-color: #2f1e3d;">
+            <h2>On-Device Station Bookmarks</h2>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                <input type="text" id="stationCallsign" placeholder="e.g., W4USA-9" style="flex: 1; min-width: 120px; background-color: #0a0a0a; color: #b07fe2; border: 1px solid #3d2454; border-radius: 8px; padding: 10px; font-family: monospace; text-transform: uppercase;">
+                <input type="text" id="stationNotes" placeholder="Station Notes" style="flex: 2; min-width: 200px; background-color: #0a0a0a; color: #fff; border: 1px solid #3d2454; border-radius: 8px; padding: 10px;">
+                <button class="action-btn" style="margin-top:0; background-color: #331a4c; border-color: #552c7c; color: #b07fe2; padding: 10px 20px;" onclick="saveStationBookmark()">💾 Save</button>
+            </div>
+            <div id="bookmarkList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = "TATER_STATION_BOOKMARKS";
+        let trackingHistory = [];
+        let cachedWindMph = 0; // Primary metric memory tracking block
+        let cachedAprsWindMph = 0;
